@@ -1,0 +1,12 @@
+{
+    "batch_size": 128,
+    "data_dir": "../data/2D/v1_pose0",
+    "init": null,
+    "log_interval": 20,
+    "loss": "bce_ch",
+    "lr": 0.001,
+    "model": null,
+    "n_epochs": 3000,
+    "n_samples": 19,
+    "name": "v1_pose0"
+}

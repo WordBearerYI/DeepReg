@@ -1,0 +1,13 @@
+{
+    "batch_size": 16,
+    "data_dir": "../data/ActiveVisionDataset/Home_011_1/",
+    "log_interval": 2,
+    "loss": "bce_chmk",
+    "lr": 0.001,
+    "model": null,
+    "n_epochs": 3000,
+    "n_samples": 35,
+    "name": "AVD_Home_011_1_traj1",
+    "subsample_rate": 40,
+    "traj": "traj1.txt"
+}
