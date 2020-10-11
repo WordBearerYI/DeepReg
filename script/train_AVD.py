@@ -2,7 +2,7 @@ import set_path
 import os
 import argparse
 import functools
-print = functools.partial(print,flush=True)
+#print = functools.partial(print,flush=True)
 
 import numpy as np
 import torch
@@ -32,6 +32,7 @@ parser.add_argument('-t','--traj',type=str,default='traj1.txt',help='trajectory 
 parser.add_argument('-m','--model', type=str, default=None,help='pretrained model name')
 #parser.add_argument('-i','--init', type=str, default=None,help='init pose')
 parser.add_argument('--log_interval',type=int,default=10,help='logging interval of saving results')
+parser.add_argument('-v','--num_lat',type=int,default=64,help='size of latent vector')
 
 opt = parser.parse_args()
 
@@ -41,7 +42,6 @@ if not os.path.exists(checkpoint_dir):
 utils.save_opt(checkpoint_dir,opt)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 
 print('loading dataset')
 dataset = AVD(opt.data_dir,opt.traj,opt.subsample_rate)
@@ -57,12 +57,14 @@ latent_vecs = []
 mask_vecs_pair = []
 
 for i in range(len(dataset)):
-    vec = tini.xavier_normal_(torch.ones(latent_size)).to(device)
+    #vec = tini.xavier_normal_(torch.ones(latent_size)).to(device)
+    vec = (torch.ones(1,opt.num_lat).normal_(0, 0.5).to(device))
     vec = torch.nn.Parameter(vec) #True
     latent_vecs.append(vec)
     
-    mask_vec = torch.ones(dataset.point_dim)
-    mask_vecs_pair.append(mask_vecs_pair) 
+    mask_vec_back = torch.ones(dataset.point_clouds.size(2)*dataset.point_clouds.size(1)).to(device)
+    mask_vec_front = torch.ones(dataset.point_clouds.size(2)*dataset.point_clouds.size(1)).to(device)
+    mask_vecs_pair.append([mask_vec_back,mask_vec_front])  
     
 optimizer = optim.Adam([
                 {
@@ -85,11 +87,13 @@ for epoch in range(opt.n_epochs):
     training_loss= 0.0
     model.train()
 
-    for index,(obs_batch,valid_pt, pose_batch) in enumerate(loader):
+    for index,(indeces,obs_batch,valid_pt, pose_batch) in enumerate(loader):
+        
         obs_batch = obs_batch.to(device)
         valid_pt = valid_pt.to(device)
         pose_batch = pose_batch.to(device)
-        loss,mask_update = model(obs_batch,valid_pt,pose_batch,mask_vecs_pair)
+        l_vec = torch.stack([latent_vecs[i] for i in indeces.numpy()])
+        loss,mask_update = model(l_vec,obs_batch,valid_pt,pose_batch,mask_vecs_pair,epoch)
         mask_vecs_pair = mask_update
                           
         optimizer.zero_grad()
@@ -110,11 +114,12 @@ for epoch in range(opt.n_epochs):
         pose_est_np = []
         with torch.no_grad():
             model.eval()
-            for index,(obs_batch,valid_pt,pose_batch) in enumerate(loader):
+            for index,(indeces,obs_batch,valid_pt,pose_batch) in enumerate(loader):
                 obs_batch = obs_batch.to(device)
                 valid_pt = valid_pt.to(device)
                 pose_batch = pose_batch.to(device)
-                model(obs_batch,valid_pt,pose_batch,mask_vecs_pair)
+                l_vec = torch.stack([latent_vecs[i] for i in indeces.numpy()])
+                model(l_vec,obs_batch,valid_pt,pose_batch,mask_vecs_pair,epoch)
 
                 obs_global_est_np.append(model.obs_global_est.cpu().detach().numpy())
                 pose_est_np.append(model.pose_est.cpu().detach().numpy())
